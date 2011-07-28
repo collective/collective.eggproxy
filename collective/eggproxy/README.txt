@@ -57,6 +57,9 @@ collective.eggproxy can use a configuration file like this::
 
     # Update information for files older than 24h
     update_interval = 24
+    # IP address for the proxy to listen on - 127.0.0.1 restricts to local 
+    # only, specify 0.0.0.0 to listen on all interfaces
+    listen = 127.0.0.1
     # Port number where proxy will run
     port = 8888
     # always_refresh is off by default. Setting it to 1 forces eggproxy to
@@ -125,6 +128,7 @@ file::
   eggs_directory = ${buildout:directory}/var/cache
   #update_interval = 24
   #index = http://pypi.python.org/simple
+  #listen = 127.0.0.1
   #port = 8888
 
 `collective.recipe.template
