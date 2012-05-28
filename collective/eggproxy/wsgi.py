@@ -16,6 +16,8 @@
 ## You should have received a copy of the GNU General Public License
 ## along with this program; see the file COPYING. If not, write to the
 ## Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+from time import time
+from genericpath import getmtime
 import os
 import socket
 import sys
@@ -27,6 +29,8 @@ from collective.eggproxy.utils import PackageIndex
 from collective.eggproxy import IndexProxy
 from collective.eggproxy import PackageNotFound
 from collective.eggproxy.config import config
+
+UPDATE_INTERVAL = config.getint("eggproxy", "update_interval") * 3600
 
 ALWAYS_REFRESH = config.getboolean('eggproxy', 'always_refresh')
 if ALWAYS_REFRESH:
@@ -76,32 +80,36 @@ class EggProxyApp(object):
 
         return FileApp(filename)(environ, start_response)
 
+    def isOutDated(self, file_path):
+        """A file is outdated if it does not exists or if its modification date is
+        older than (now - update_interval)
+        """
+        if ALWAYS_REFRESH:
+            return True
+
+        if os.path.exists(file_path):
+            time_limit = int(time()) - UPDATE_INTERVAL
+            mtime = getmtime(file_path)
+            return mtime < time_limit
+
+        return True
+
     def checkBaseIndex(self):
         filename = os.path.join(self.eggs_dir, 'index.html')
-        if not os.path.exists(filename):
+        if self.isOutDated(filename):
             self.eggs_index_proxy.updateBaseIndex(self.eggs_dir)
         return filename
 
     def checkPackageIndex(self, package_name):
         filename = os.path.join(self.eggs_dir, package_name, 'index.html')
-        if not os.path.exists(filename):
+        if self.isOutDated(filename):
             try:
                 self.eggs_index_proxy.updatePackageIndex(
                     package_name,
                     eggs_dir=self.eggs_dir)
             except PackageNotFound:
                 return None
-        elif ALWAYS_REFRESH:
-            # Force refresh
-            try:
-                self.eggs_index_proxy.updatePackageIndex(
-                    package_name,
-                    eggs_dir=self.eggs_dir)
-            except PackageNotFound:
-                pass
-        else:
-            # Just use the proxied copy.
-            pass
+
         return filename
 
     def checkEggFor(self, package_name, eggname):
